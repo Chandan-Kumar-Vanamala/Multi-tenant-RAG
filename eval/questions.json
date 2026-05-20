@@ -1,0 +1,102 @@
+[
+    {
+        "id": 1,
+        "question": "How many years of experience does Chandan have?",
+        "expected": "Chandan has 3+ years of experience as a full-stack engineer"
+    },
+    {
+        "id": 2,
+        "question": "What is Chandan's strongest backend stack?",
+        "expected": "TypeScript/Node and ASP.NET Core on the backend"
+    },
+    {
+        "id": 3,
+        "question": "What database does Chandan use in production?",
+        "expected": "PostgreSQL"
+    },
+    {
+        "id": 4,
+        "question": "What cloud platforms has Chandan worked with?",
+        "expected": "AWS and Azure"
+    },
+    {
+        "id": 5,
+        "question": "What is the multi-tenant SaaS project about?",
+        "expected": "A production REST API platform where multiple organizations share one database safely with tenant isolation via EF Core global query filters"
+    },
+    {
+        "id": 6,
+        "question": "How did Chandan prevent cross-tenant data leaks?",
+        "expected": "Using EF Core global query filters that automatically scope every database query by tenant ID at the ORM level"
+    },
+    {
+        "id": 7,
+        "question": "What CI/CD tool does Chandan use?",
+        "expected": "GitHub Actions"
+    },
+    {
+        "id": 8,
+        "question": "What containerization technology does Chandan use?",
+        "expected": "Docker"
+    },
+    {
+        "id": 9,
+        "question": "Where did Chandan work as a Full-Stack Developer?",
+        "expected": "Purdue University Indianapolis"
+    },
+    {
+        "id": 10,
+        "question": "What did Chandan accomplish at Matrix?",
+        "expected": "Built backend services and REST APIs with Node.js and Spring Boot, automated workflows removing 30% of manual processing time, and resolved production incidents"
+    },
+    {
+        "id": 11,
+        "question": "What is Chandan's highest level of education?",
+        "expected": "Master of Science in Computer and Information Science from Purdue University Indianapolis, graduated December 2025"
+    },
+    {
+        "id": 12,
+        "question": "What is Chandan's GPA?",
+        "expected": "3.61 out of 4.0"
+    },
+    {
+        "id": 13,
+        "question": "What AWS certification does Chandan hold?",
+        "expected": "AWS Certified Developer Associate"
+    },
+    {
+        "id": 14,
+        "question": "What frontend framework does Chandan use?",
+        "expected": "React"
+    },
+    {
+        "id": 15,
+        "question": "How did Chandan improve query performance at Purdue?",
+        "expected": "Cut p95 query latency 25% by indexing hot paths and rewriting N+1-prone queries on Postgres"
+    },
+    {
+        "id": 16,
+        "question": "What auth mechanisms has Chandan implemented?",
+        "expected": "JWT authentication with role-based access control and OAuth flows"
+    },
+    {
+        "id": 17,
+        "question": "What is the SSO Authentication project?",
+        "expected": "A centralized auth service with JWT, RBAC, and OAuth2-style SSO flow with PostgreSQL-backed session management"
+    },
+    {
+        "id": 18,
+        "question": "What testing frameworks has Chandan used?",
+        "expected": "xUnit for unit and integration tests"
+    },
+    {
+        "id": 19,
+        "question": "What is Chandan's work authorization status?",
+        "expected": "Authorized to work in the US on F-1 STEM OPT, open to remote and relocation"
+    },
+    {
+        "id": 20,
+        "question": "What is the OWASP scanner project?",
+        "expected": "A web app scanning 500+ uploaded files with dual-axis filtering that lifted issue-detection precision 35%, built with React, Spring Boot, and Python"
+    }
+]
