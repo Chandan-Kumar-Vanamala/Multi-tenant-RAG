@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.auth import get_current_user
-from app.models.models import User, Document
+from app.models.models import User, Document, DocumentChunk
 from app.services.ingestion import ingest_document
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -72,3 +72,28 @@ def list_documents(
         }
         for doc in documents
     ]
+
+
+@router.delete("/{document_id}", status_code=200)
+def delete_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Ensure the document belongs to this tenant
+    document = (
+        db.query(Document)
+        .filter(
+            Document.id == document_id,
+            Document.tenant_id == current_user.tenant_id
+        )
+        .first()
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Delete all chunks first, then the document
+    db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).delete()
+    db.delete(document)
+    db.commit()
+    return {"deleted": document_id}
