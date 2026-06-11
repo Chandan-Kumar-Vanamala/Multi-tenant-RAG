@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import init_db
-from app.api import auth, documents, query
+from app.api import auth, documents, query, conversations
 
 app = FastAPI(
     title="Multi-Tenant RAG Platform",
@@ -24,6 +24,7 @@ def startup_event():
 app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(query.router)
+app.include_router(conversations.router)
 
 @app.get("/health")
 def health_check():
