@@ -48,13 +48,26 @@ def get_token() -> str:
     return response.json()["access_token"]
 
 
+# ── Conversation ───────────────────────────────────────────────────────────────
+
+def create_conversation(token: str) -> str:
+    """Create a fresh conversation for this eval run and return its id."""
+    response = httpx.post(
+        f"{BASE_URL}/conversations/",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=15.0
+    )
+    response.raise_for_status()
+    return response.json()["id"]
+
+
 # ── Query ─────────────────────────────────────────────────────────────────────
 
-def ask_question(question: str, token: str) -> tuple[str, float]:
+def ask_question(question: str, token: str, conversation_id: str) -> tuple[str, float]:
     start = time.time()
     response = httpx.post(
         f"{BASE_URL}/query/",
-        json={"question": question, "stream": False},
+        json={"question": question, "stream": False, "conversation_id": conversation_id},
         headers={"Authorization": f"Bearer {token}"},
         timeout=60.0
     )
@@ -109,7 +122,11 @@ def run_eval(prompt_version: str = "v1"):
     # Get auth token
     print("Authenticating...")
     token = get_token()
-    print("Authenticated.\n")
+    print("Authenticated.")
+
+    # Create a dedicated conversation for this eval run
+    conversation_id = create_conversation(token)
+    print(f"Eval conversation created: {conversation_id}\n")
 
     results = []
     total_score = 0
@@ -119,7 +136,7 @@ def run_eval(prompt_version: str = "v1"):
         print(f"[{i+1}/{len(questions)}] {item['question'][:60]}...")
 
         # Ask the question
-        actual_answer, latency = ask_question(item["question"], token)
+        actual_answer, latency = ask_question(item["question"], token, conversation_id)
 
         # Judge the answer
         judgment = judge_answer(

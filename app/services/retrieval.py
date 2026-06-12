@@ -3,7 +3,8 @@ from sqlalchemy import text
 from app.models.models import DocumentChunk
 from app.services.embeddings import embed_text
 
-TOP_K = 5  # number of chunks to retrieve
+TOP_K = 8          # retrieve more candidates to avoid missing relevant chunks
+MIN_SIMILARITY = 0.30  # discard chunks below this cosine similarity threshold
 
 def retrieve_chunks(
     question: str,
@@ -14,7 +15,8 @@ def retrieve_chunks(
     question_embedding = embed_text(question)
 
     # Vector similarity search — filtered by tenant_id at SQL level
-    # <=> is the pgvector cosine distance operator
+    # <=> is the pgvector cosine distance operator (cosine distance, so lower = more similar)
+    # We convert to similarity score: similarity = 1 - cosine_distance
     results = db.execute(
         text("""
             SELECT
@@ -27,13 +29,15 @@ def retrieve_chunks(
             FROM document_chunks dc
             JOIN documents d ON dc.document_id = d.id
             WHERE dc.tenant_id = :tenant_id
+              AND (1 - (dc.embedding <=> CAST(:embedding AS vector))) >= :min_similarity
             ORDER BY dc.embedding <=> CAST(:embedding AS vector)
             LIMIT :top_k
         """),
         {
             "embedding": str(question_embedding),
             "tenant_id": tenant_id,
-            "top_k": TOP_K
+            "top_k": TOP_K,
+            "min_similarity": MIN_SIMILARITY
         }
     ).fetchall()
 

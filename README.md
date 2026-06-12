@@ -2,15 +2,16 @@
 
 A **production-ready, multi-tenant Retrieval-Augmented Generation (RAG) platform** that allows multiple organizations to upload private documents and ask questions against them — with strict per-tenant data isolation. Built with **FastAPI**, **PostgreSQL + pgvector**, **Groq (LLaMA 3.3)**, and a **React** frontend.
 
-> **Eval results (v1):** 86.5% accuracy · 8.65/10 avg score · 3.06s avg latency across 20 questions
+> **Eval results (v3 — first valid baseline):** 75.0% accuracy · 7.5/10 avg score · 4.21s avg latency across 20 questions
 
 ---
 
 ## ✨ Features
 
 - **Multi-tenant isolation** — every document chunk carries a `tenant_id`; cross-tenant data leaks are structurally impossible
-- **PDF ingestion pipeline** — upload PDFs that are parsed, chunked (500 chars / 50 overlap), and embedded with `BAAI/bge-small-en-v1.5`
-- **Semantic search** — pgvector cosine similarity retrieval scoped strictly to the requesting tenant
+- **Multi-format ingestion** — upload **PDF, DOCX, and TXT** files; parsed, chunked (500 chars / 50 overlap), and embedded with `BAAI/bge-small-en-v1.5`
+- **Semantic search** — pgvector cosine similarity retrieval (TOP_K=8, MIN_SIMILARITY=0.30) scoped strictly to the requesting tenant
+- **Conversation history** — multi-turn conversations with auto-titling and persistent message history
 - **Streaming answers** — token-by-token SSE streaming via Groq's `llama-3.3-70b-versatile` model
 - **Citations** — every answer returns the source chunks it was grounded on (filename + similarity score)
 - **JWT auth** — stateless Bearer tokens with tenant context baked into the payload
@@ -44,30 +45,32 @@ A **production-ready, multi-tenant Retrieval-Augmented Generation (RAG) platform
 Multi-tenant RAG/
 ├── app/
 │   ├── api/
-│   │   ├── auth.py          # Register, login, /me endpoints
-│   │   ├── documents.py     # PDF upload + document listing
-│   │   └── query.py         # RAG query with streaming SSE
+│   │   ├── auth.py            # Register, login, /me endpoints
+│   │   ├── conversations.py   # Create, list, delete conversations
+│   │   ├── documents.py       # PDF/DOCX/TXT upload + document listing
+│   │   └── query.py           # RAG query with streaming SSE + history
 │   ├── core/
-│   │   ├── config.py        # Pydantic settings (env-driven)
-│   │   ├── database.py      # SQLAlchemy engine + session
-│   │   └── security.py      # JWT helpers, password hashing
+│   │   ├── config.py          # Pydantic settings (env-driven)
+│   │   ├── database.py        # SQLAlchemy engine + session
+│   │   └── security.py        # JWT helpers, password hashing
 │   ├── models/
-│   │   └── models.py        # Tenant, User, Document, DocumentChunk ORM models
+│   │   └── models.py          # Tenant, User, Document, DocumentChunk, Conversation ORM models
 │   ├── services/
-│   │   ├── embeddings.py    # sentence-transformers batch embedding
-│   │   ├── ingestion.py     # PDF → chunks → embeddings → DB
-│   │   └── retrieval.py     # pgvector similarity search
-│   └── main.py              # FastAPI app + CORS + router registration
+│   │   ├── embeddings.py      # sentence-transformers batch embedding
+│   │   ├── ingestion.py       # PDF/DOCX/TXT → chunks → embeddings → DB
+│   │   └── retrieval.py       # pgvector similarity search (TOP_K=8, threshold=0.30)
+│   └── main.py                # FastAPI app + CORS + router registration
 ├── eval/
-│   ├── questions.json        # 20 ground-truth Q&A pairs
-│   ├── prompts.json          # Prompt version definitions
-│   ├── run_eval.py           # LLM-as-judge evaluation harness
-│   ├── report_v1.json        # Eval results — prompt v1
-│   └── report_v2.json        # Eval results — prompt v2
-├── frontend/                 # React + Vite UI
-├── docker-compose.yml        # PostgreSQL + pgvector local setup
-├── render.yaml               # Render.com deployment config
-├── Procfile                  # Gunicorn process definition
+│   ├── questions.json          # 20 ground-truth Q&A pairs
+│   ├── prompts.json            # Prompt version definitions (v1–v3)
+│   ├── run_eval.py             # LLM-as-judge evaluation harness
+│   ├── report_v1.json          # LEGACY — invalid (broken harness)
+│   ├── report_v2.json          # LEGACY — invalid (broken harness)
+│   └── report_v3.json          # ✅ First valid baseline eval results
+├── frontend/                   # React + Vite UI
+├── docker-compose.yml          # PostgreSQL + pgvector local setup
+├── render.yaml                 # Render.com deployment config
+├── Procfile                    # Gunicorn process definition
 └── requirements.txt
 ```
 
@@ -159,8 +162,17 @@ The UI will be available at `http://localhost:5173`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/documents/upload` | Upload a PDF (max 10 MB) |
+| `POST` | `/documents/upload` | Upload a PDF, DOCX, or TXT file (max 10 MB) |
 | `GET` | `/documents/` | List all documents for the current tenant |
+
+### Conversations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/conversations/` | Create a new conversation |
+| `GET` | `/conversations/` | List all conversations for current user |
+| `GET` | `/conversations/{id}/messages` | Get all messages in a conversation |
+| `DELETE` | `/conversations/{id}` | Delete a conversation and its messages |
 
 ### Query
 
@@ -172,6 +184,7 @@ The UI will be available at `http://localhost:5173`.
 ```json
 {
   "question": "What are the key findings in the Q3 report?",
+  "conversation_id": "<uuid from POST /conversations/>",
   "stream": true
 }
 ```
@@ -204,17 +217,19 @@ The `eval/` directory contains a **LLM-as-judge harness** that benchmarks answer
 
 ```bash
 # Run evaluation against a live server (ensure server is running first)
-python eval/run_eval.py v1
+# The harness automatically creates a conversation for the eval run
+python eval/run_eval.py v3
 ```
 
 The judge uses `llama-3.3-70b-versatile` (temperature=0) to score each answer 0–10 and writes a full report to `eval/report_<version>.json`.
 
 ### Results
 
-| Prompt Version | Avg Score | Accuracy | Avg Latency |
-|----------------|-----------|----------|-------------|
-| v1 | 8.65 / 10 | **86.5%** | 3.06s |
-| v2 | *(see report_v2.json)* | | |
+| Prompt Version | Avg Score | Accuracy | Avg Latency | Status |
+|----------------|-----------|----------|-------------|--------|
+| v1 | — | — | — | ❌ Legacy (broken harness) |
+| v2 | — | — | — | ❌ Legacy (broken harness) |
+| **v3** | **7.5 / 10** | **75.0%** | **4.21s** | ✅ Valid baseline |
 
 ---
 
@@ -248,7 +263,7 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 | **Embeddings** | `sentence-transformers` (`BAAI/bge-small-en-v1.5`) |
 | **LLM** | Groq API (`llama-3.3-70b-versatile`) |
 | **Auth** | JWT (python-jose), bcrypt (passlib) |
-| **PDF Parsing** | pypdf |
+| **Document Parsing** | pypdf (PDF), python-docx (DOCX), built-in (TXT) |
 | **Text Splitting** | LangChain `RecursiveCharacterTextSplitter` |
 | **Frontend** | React 18, Vite |
 | **Containerization** | Docker, Docker Compose |
