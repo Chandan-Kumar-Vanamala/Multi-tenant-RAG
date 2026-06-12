@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import '../App.css'
 
 /* ── Toast helper (local) ─────────────────────────────────────────────────── */
@@ -27,7 +27,7 @@ export default function Login({ onLogin }) {
         setLoading(true)
         try {
             if (mode === 'register') {
-                await axios.post('/auth/register', form)
+                await api.post('/auth/register', form)
                 add('Workspace created! Please sign in.', 'success')
                 setMode('login')
                 setForm(f => ({ ...f, tenant_name: '' }))
@@ -35,7 +35,7 @@ export default function Login({ onLogin }) {
                 const params = new URLSearchParams()
                 params.append('username', form.email)
                 params.append('password', form.password)
-                const res = await axios.post('/auth/login', params)
+                const res = await api.post('/auth/login', params)
                 onLogin(res.data.access_token)
             }
         } catch (e) {

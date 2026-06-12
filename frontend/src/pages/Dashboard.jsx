@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api, { BASE_URL } from '../api'
 import ReactMarkdown from 'react-markdown'
 import '../App.css'
 
@@ -77,7 +77,7 @@ export default function Dashboard({ token, onLogout }) {
     /* ── Conversations ────────────────────────────────────────────────────── */
     const loadConversations = async () => {
         try {
-            const res = await axios.get('/conversations/', { headers })
+            const res = await api.get('/conversations/', { headers })
             const data = Array.isArray(res.data) ? res.data : []
             setConversations(data)
             // Auto-select most recent or create a fresh one
@@ -93,7 +93,7 @@ export default function Dashboard({ token, onLogout }) {
 
     const createConversation = async () => {
         try {
-            const res = await axios.post('/conversations/', {}, { headers })
+            const res = await api.post('/conversations/', {}, { headers })
             const newConv = res.data
             setConversations(prev => (Array.isArray(prev) ? [newConv, ...prev] : [newConv]))
             setActiveConvId(newConv.id)
@@ -108,7 +108,7 @@ export default function Dashboard({ token, onLogout }) {
         if (convId === activeConvId) return
         setActiveConvId(convId)
         try {
-            const res = await axios.get(`/conversations/${convId}/messages`, { headers })
+            const res = await api.get(`/conversations/${convId}/messages`, { headers })
             // Re-hydrate messages into UI format
             const loaded = []
             for (const m of res.data) {
@@ -128,7 +128,7 @@ export default function Dashboard({ token, onLogout }) {
         e.stopPropagation()
         setDeletingConvId(conv.id)
         try {
-            await axios.delete(`/conversations/${conv.id}`, { headers })
+            await api.delete(`/conversations/${conv.id}`, { headers })
             const remaining = conversations.filter(c => c.id !== conv.id)
             setConversations(remaining)
             if (activeConvId === conv.id) {
@@ -149,7 +149,7 @@ export default function Dashboard({ token, onLogout }) {
     /* ── Documents ────────────────────────────────────────────────────────── */
     const loadDocs = async () => {
         try {
-            const res = await axios.get('/documents/', { headers })
+            const res = await api.get('/documents/', { headers })
             setDocs(res.data)
         } catch { }
     }
@@ -167,7 +167,7 @@ export default function Dashboard({ token, onLogout }) {
         const form = new FormData()
         form.append('file', file)
         try {
-            await axios.post('/documents/upload', form, { headers })
+            await api.post('/documents/upload', form, { headers })
             toast(`"${file.name}" uploaded`, 'success')
             await loadDocs()
         } catch (err) {
@@ -181,7 +181,7 @@ export default function Dashboard({ token, onLogout }) {
     const deleteDoc = async (doc) => {
         setDeletingDocId(doc.id)
         try {
-            await axios.delete(`/documents/${doc.id}`, { headers })
+            await api.delete(`/documents/${doc.id}`, { headers })
             setDocs(d => d.filter(x => x.id !== doc.id))
             toast(`"${doc.filename}" deleted`, 'info')
         } catch (err) {
@@ -216,7 +216,7 @@ export default function Dashboard({ token, onLogout }) {
         setMessages(m => [...m, { role: 'bot', content: '', citations: [], typing: true }])
 
         try {
-            const res = await fetch('/query/', {
+            const res = await fetch(`${BASE_URL}/query/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ question: q, conversation_id: convId, stream: true })
@@ -255,7 +255,7 @@ export default function Dashboard({ token, onLogout }) {
                             ))
                         } else if (data.type === 'done') {
                             // Refresh conversation list so title + updated_at update
-                            const updated = await axios.get('/conversations/', { headers })
+                            const updated = await api.get('/conversations/', { headers })
                             setConversations(updated.data)
                         }
                     } catch { /* ignore partial JSON */ }
