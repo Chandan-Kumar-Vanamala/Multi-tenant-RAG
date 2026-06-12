@@ -1,5 +1,5 @@
-import uuid
 from pypdf import PdfReader
+from docx import Document as DocxDocument
 from io import BytesIO
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
@@ -25,16 +25,41 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
             pages.append(text.strip())
     return "\n\n".join(pages)
 
+def extract_text_from_docx(file_bytes: bytes) -> str:
+    doc = DocxDocument(BytesIO(file_bytes))
+    paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+    return "\n\n".join(paragraphs)
+
+def extract_text_from_txt(file_bytes: bytes) -> str:
+    # Try UTF-8 first, fall back to latin-1
+    try:
+        return file_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return file_bytes.decode("latin-1")
+
 def ingest_document(
     filename: str,
     file_bytes: bytes,
     tenant_id: str,
     db: Session
 ) -> dict:
-    # Step 1: Extract text
-    raw_text = extract_text_from_pdf(file_bytes)
-    if not raw_text.strip():
-        raise ValueError("Could not extract text from PDF")
+    # Step 1: Extract text based on file extension
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+    if ext == "pdf":
+        raw_text = extract_text_from_pdf(file_bytes)
+        if not raw_text.strip():
+            raise ValueError("Could not extract text from PDF")
+    elif ext == "docx":
+        raw_text = extract_text_from_docx(file_bytes)
+        if not raw_text.strip():
+            raise ValueError("Could not extract text from DOCX")
+    elif ext == "txt":
+        raw_text = extract_text_from_txt(file_bytes)
+        if not raw_text.strip():
+            raise ValueError("The text file appears to be empty")
+    else:
+        raise ValueError(f"Unsupported file type: .{ext}")
 
     # Step 2: Chunk
     chunks = splitter.split_text(raw_text)

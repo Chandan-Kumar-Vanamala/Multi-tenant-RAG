@@ -7,7 +7,11 @@ from app.services.ingestion import ingest_document
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-ALLOWED_TYPES = {"application/pdf"}
+ALLOWED_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "text/plain",  # .txt
+}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
@@ -21,7 +25,7 @@ async def upload_document(
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="Only PDF files are supported"
+            detail="Unsupported file type. Please upload a PDF, DOCX, or TXT file."
         )
 
     # Read file bytes

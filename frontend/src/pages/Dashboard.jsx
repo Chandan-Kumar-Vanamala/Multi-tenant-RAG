@@ -156,7 +156,12 @@ export default function Dashboard({ token, onLogout }) {
 
     const handleUpload = async (file) => {
         if (!file) return
-        if (file.type !== 'application/pdf') { toast('Only PDF files are supported', 'error'); return }
+        const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
+        const allowedExts = ['.pdf', '.docx', '.txt']
+        const ext = '.' + file.name.split('.').pop().toLowerCase()
+        if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
+            toast('Only PDF, DOCX, and TXT files are supported', 'error'); return
+        }
         if (file.size > 10 * 1024 * 1024) { toast('File must be under 10 MB', 'error'); return }
         setUploading(true)
         const form = new FormData()
@@ -369,15 +374,15 @@ export default function Dashboard({ token, onLogout }) {
                                 onDrop={onDrop}
                                 onClick={() => !uploading && fileRef.current?.click()}
                             >
-                                <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }}
+                                <input ref={fileRef} type="file" accept=".pdf,.docx,.txt" style={{ display: 'none' }}
                                     onChange={e => handleUpload(e.target.files[0])} />
                                 {uploading ? (
                                     <><span className="spinner" style={{ borderTopColor: 'var(--accent-blue)' }} /><span>Uploading…</span></>
                                 ) : (
                                     <>
                                         <span className="upload-icon">⬆</span>
-                                        <span className="upload-label">{dragging ? 'Drop to upload' : 'Upload PDF'}</span>
-                                        <span className="upload-hint">drag & drop · max 10 MB</span>
+                                        <span className="upload-label">{dragging ? 'Drop to upload' : 'Upload Document'}</span>
+                                        <span className="upload-hint">PDF, DOCX, TXT · drag & drop · max 10 MB</span>
                                     </>
                                 )}
                             </div>
