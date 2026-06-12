@@ -8,6 +8,7 @@ export default defineConfig({
       '/auth': 'http://127.0.0.1:8000',
       '/documents': 'http://127.0.0.1:8000',
       '/query': 'http://127.0.0.1:8000',
+      '/conversations': 'http://127.0.0.1:8000',
     }
   }
 })

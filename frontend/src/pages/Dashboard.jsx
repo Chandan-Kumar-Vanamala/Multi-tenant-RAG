@@ -78,10 +78,11 @@ export default function Dashboard({ token, onLogout }) {
     const loadConversations = async () => {
         try {
             const res = await axios.get('/conversations/', { headers })
-            setConversations(res.data)
+            const data = Array.isArray(res.data) ? res.data : []
+            setConversations(data)
             // Auto-select most recent or create a fresh one
-            if (res.data.length > 0) {
-                await switchConversation(res.data[0].id)
+            if (data.length > 0) {
+                await switchConversation(data[0].id)
             } else {
                 await createConversation()
             }
@@ -94,7 +95,7 @@ export default function Dashboard({ token, onLogout }) {
         try {
             const res = await axios.post('/conversations/', {}, { headers })
             const newConv = res.data
-            setConversations(prev => [newConv, ...prev])
+            setConversations(prev => (Array.isArray(prev) ? [newConv, ...prev] : [newConv]))
             setActiveConvId(newConv.id)
             setMessages([])
             return newConv.id
@@ -267,7 +268,9 @@ export default function Dashboard({ token, onLogout }) {
     }
 
     /* ── Active conversation title ────────────────────────────────────────── */
-    const activeConv = conversations.find(c => c.id === activeConvId)
+    const activeConv = Array.isArray(conversations)
+        ? conversations.find(c => c.id === activeConvId)
+        : undefined
 
     /* ── Render ───────────────────────────────────────────────────────────── */
     return (
