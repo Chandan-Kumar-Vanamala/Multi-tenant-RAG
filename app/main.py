@@ -18,7 +18,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://multi-tenant-rag-1.onrender.com",
+        "https://frontend-6a7r.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
