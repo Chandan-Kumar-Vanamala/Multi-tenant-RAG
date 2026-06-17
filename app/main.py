@@ -1,7 +1,11 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import init_db
 from app.api import auth, documents, query, conversations
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Multi-Tenant RAG Platform",
@@ -23,7 +27,13 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup_event():
-    init_db()
+    try:
+        logger.info("Initializing database...")
+        init_db()
+        logger.info("Database initialized successfully.")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        logger.warning("Server starting without DB — some endpoints may fail.")
 
 app.include_router(auth.router)
 app.include_router(documents.router)
