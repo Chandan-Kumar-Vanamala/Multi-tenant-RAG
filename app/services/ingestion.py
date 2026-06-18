@@ -66,8 +66,12 @@ def ingest_document(
     if not chunks:
         raise ValueError("Document produced no chunks after splitting")
 
-    # Step 3: Embed all chunks in one batch (faster than one-by-one)
-    embeddings = embed_texts(chunks)
+    # Step 3: Embed in small batches to avoid OOM on free tier
+    BATCH_SIZE = 16
+    embeddings = []
+    for i in range(0, len(chunks), BATCH_SIZE):
+        batch = chunks[i:i + BATCH_SIZE]
+        embeddings.extend(embed_texts(batch))
 
     # Step 4: Save document record
     document = Document(

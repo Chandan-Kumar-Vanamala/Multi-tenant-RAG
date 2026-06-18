@@ -10,8 +10,11 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 ALLOWED_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "application/msword",  # older .doc (some browsers)
+    "application/octet-stream",  # generic binary — validate by extension instead
     "text/plain",  # .txt
 }
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
@@ -21,8 +24,9 @@ async def upload_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Validate file type
-    if file.content_type not in ALLOWED_TYPES:
+    # Validate by extension (more reliable than content-type across browsers)
+    ext = "." + (file.filename.rsplit(".", 1)[-1].lower()) if "." in file.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail="Unsupported file type. Please upload a PDF, DOCX, or TXT file."
