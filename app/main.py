@@ -2,6 +2,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import init_db
+from app.services.embeddings import get_embedding_model
 from app.api import auth, documents, query, conversations
 
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,13 @@ def startup_event():
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         logger.warning("Server starting without DB — some endpoints may fail.")
+
+    try:
+        logger.info("Pre-warming embedding model...")
+        get_embedding_model()
+        logger.info("Embedding model ready.")
+    except Exception as e:
+        logger.error(f"Embedding model pre-warm failed: {e}")
 
 app.include_router(auth.router)
 app.include_router(documents.router)
