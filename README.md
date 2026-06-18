@@ -70,9 +70,8 @@ Multi-tenant RAG/
 │   ├── questions.json          # 20 ground-truth Q&A pairs
 │   ├── prompts.json            # Prompt version definitions (v1–v3)
 │   ├── run_eval.py             # LLM-as-judge evaluation harness
-│   ├── report_v1.json          # LEGACY — invalid (broken harness)
-│   ├── report_v2.json          # LEGACY — invalid (broken harness)
-│   └── report_v3.json          # ✅ First valid baseline eval results
+│   ├── report_v1.json          # ✅ Valid baseline — v1 prompt, 7.5/10 avg score, 75% accuracy
+│   └── report_v2.json          # ⚠️  Partial — v2 assertive prompt, 6.1/10, Q17-20 hit server errors
 ├── frontend/                   # React + Vite UI
 ├── docker-compose.yml          # PostgreSQL + pgvector local setup
 ├── render.yaml                 # Render.com deployment config
@@ -225,18 +224,24 @@ The `eval/` directory contains a **LLM-as-judge harness** that benchmarks answer
 
 ```bash
 # Run evaluation against a live server (ensure server is running first)
-python eval/run_eval.py v3
+python eval/run_eval.py v1
 ```
 
 The judge uses `llama-3.3-70b-versatile` (temperature=0) to score each answer 0–10 and writes a full report to `eval/report_<version>.json`.
 
 ### Results
 
-| Prompt Version | Avg Score | Accuracy | Avg Latency | Status |
-|----------------|-----------|----------|-------------|--------|
-| v1 | — | — | — | ❌ Legacy (broken harness) |
-| v2 | — | — | — | ❌ Legacy (broken harness) |
-| **v3** | **7.5 / 10** | **75.0%** | **4.21s** | ✅ Valid baseline |
+| Prompt Version | Avg Score | Accuracy | Avg Latency | Notes |
+|----------------|-----------|----------|-------------|-------|
+| **v1** — Source-citing baseline | **7.5 / 10** | **75.0%** | **4.21s** | ✅ Best result — strict context-only with source references |
+| **v2** — Assertive inferencing | 6.1 / 10 | 61.0% | 4.72s | ⚠️ Partial — Q17–20 hit server errors during run |
+
+### Key Observations
+
+- **v1 outperforms v2** — strict context-only prompting produced more accurate, grounded answers
+- **v2 weaknesses** — assertive/inferencing prompt caused hallucinations on ambiguous questions (e.g. Q9, Q10)
+- **Common failures** — questions whose answers weren't in uploaded docs (Q9: Purdue workplace, Q19: work auth status) scored 0 regardless of prompt strategy
+- **Strengths** — factual recall questions (GPA, AWS cert, CI/CD tool, frontend framework) scored 10/10 across both versions
 
 ---
 
