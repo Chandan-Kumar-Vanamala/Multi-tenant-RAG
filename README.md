@@ -4,6 +4,11 @@ A **production-ready, multi-tenant Retrieval-Augmented Generation (RAG) platform
 
 > **Eval results (v3 — first valid baseline):** 75.0% accuracy · 7.5/10 avg score · 4.21s avg latency across 20 questions
 
+🌐 **Live Demo:**
+- Frontend: [https://frontend-6a7r.onrender.com](https://frontend-6a7r.onrender.com)
+- Backend API: [https://rag-backend-ad03.onrender.com](https://rag-backend-ad03.onrender.com)
+- API Docs: [https://rag-backend-ad03.onrender.com/docs](https://rag-backend-ad03.onrender.com/docs)
+
 ---
 
 ## ✨ Features
@@ -24,18 +29,19 @@ A **production-ready, multi-tenant Retrieval-Augmented Generation (RAG) platform
 ```
 ┌───────────────────────────────────────────────┐
 │                React Frontend                 │
-│          (Vite · JSX · port 5173)             │
+│     (Vite · JSX · Render Static Site)        │
 └──────────────────┬────────────────────────────┘
                    │ HTTP / SSE
 ┌──────────────────▼────────────────────────────┐
 │            FastAPI Backend (Python)           │
 │  /auth  ·  /documents  ·  /query              │
+│  Gunicorn + UvicornWorker (Render Web Svc)   │
 └──────┬───────────────────────┬────────────────┘
        │                       │
 ┌──────▼──────┐      ┌─────────▼──────────────┐
 │  PostgreSQL  │      │  Groq API              │
 │  + pgvector  │      │  llama-3.3-70b         │
-│  (embeddings)│      │  (LLM inference)       │
+│  (Render DB) │      │  (LLM inference)       │
 └─────────────┘      └────────────────────────┘
 ```
 
@@ -56,10 +62,10 @@ Multi-tenant RAG/
 │   ├── models/
 │   │   └── models.py          # Tenant, User, Document, DocumentChunk, Conversation ORM models
 │   ├── services/
-│   │   ├── embeddings.py      # sentence-transformers batch embedding
-│   │   ├── ingestion.py       # PDF/DOCX/TXT → chunks → embeddings → DB
+│   │   ├── embeddings.py      # fastembed (ONNX) batch embedding — lightweight, ~100MB RAM
+│   │   ├── ingestion.py       # PDF/DOCX/TXT → chunks → embeddings → DB (batched)
 │   │   └── retrieval.py       # pgvector similarity search (TOP_K=8, threshold=0.30)
-│   └── main.py                # FastAPI app + CORS + router registration
+│   └── main.py                # FastAPI app + CORS + router registration + model pre-warming
 ├── eval/
 │   ├── questions.json          # 20 ground-truth Q&A pairs
 │   ├── prompts.json            # Prompt version definitions (v1–v3)
@@ -71,6 +77,7 @@ Multi-tenant RAG/
 ├── docker-compose.yml          # PostgreSQL + pgvector local setup
 ├── render.yaml                 # Render.com deployment config
 ├── Procfile                    # Gunicorn process definition
+├── runtime.txt                 # Python 3.11.9 pin for Render
 └── requirements.txt
 ```
 
@@ -96,7 +103,7 @@ Create a `.env` file in the project root:
 
 ```env
 DATABASE_URL=postgresql://raguser:ragpassword@localhost:5432/ragdb
-SECRET_KEY=your-secret-key-here
+SECRET_KEY=your-secret-key-here-minimum-32-chars
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 GROQ_API_KEY=your-groq-api-key-here
@@ -164,6 +171,7 @@ The UI will be available at `http://localhost:5173`.
 |--------|----------|-------------|
 | `POST` | `/documents/upload` | Upload a PDF, DOCX, or TXT file (max 10 MB) |
 | `GET` | `/documents/` | List all documents for the current tenant |
+| `DELETE` | `/documents/{id}` | Delete a document and all its chunks |
 
 ### Conversations
 
@@ -217,7 +225,6 @@ The `eval/` directory contains a **LLM-as-judge harness** that benchmarks answer
 
 ```bash
 # Run evaluation against a live server (ensure server is running first)
-# The harness automatically creates a conversation for the eval run
 python eval/run_eval.py v3
 ```
 
@@ -233,23 +240,47 @@ The judge uses `llama-3.3-70b-versatile` (temperature=0) to score each answer 0�
 
 ---
 
-## 🐳 Deployment
+## ☁️ Deployment (Render.com)
 
-### Render.com
+The app is deployed on [Render](https://render.com/) with three services:
 
-The project includes a `render.yaml` for one-click deployment to [Render](https://render.com/):
+| Service | Type | Notes |
+|---------|------|-------|
+| `rag-db` | PostgreSQL 16 | With pgvector extension |
+| `rag-backend` | Web Service (Python 3.11) | FastAPI + Gunicorn |
+| `rag-frontend` | Static Site | React + Vite build |
+
+### Backend Environment Variables
+
+| Key | Description |
+|-----|-------------|
+| `DATABASE_URL` | Internal PostgreSQL URL from Render |
+| `SECRET_KEY` | Random 64-char hex string for JWT signing |
+| `ALGORITHM` | `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` (or `1440` for 24h sessions) |
+| `GROQ_API_KEY` | From [console.groq.com](https://console.groq.com/) |
+| `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` |
+| `PYTHON_VERSION` | `3.11.9` |
+
+### Backend Start Command
 
 ```bash
-# The render.yaml configures:
-# - Python web service with Gunicorn + Uvicorn workers
-# - Environment variables (DATABASE_URL, SECRET_KEY, GROQ_API_KEY)
+gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
 ```
 
-### Manual (Gunicorn)
+> **Note:** 1 worker is required on the free tier (512MB RAM). The `fastembed` ONNX model uses ~100MB, leaving headroom for requests.
 
-```bash
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
+### Frontend Environment Variables
+
+| Key | Value |
+|-----|-------|
+| `VITE_API_URL` | Your backend Render URL |
+
+### Deploy Steps
+
+1. Create a **PostgreSQL** database on Render → copy the Internal Database URL
+2. Create a **Web Service** → connect GitHub repo → set env vars + start command above
+3. Create a **Static Site** → Root Directory: `frontend` → Build: `npm install && npm run build` → Publish: `dist`
 
 ---
 
@@ -260,14 +291,14 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 | **Backend** | FastAPI, Python 3.11, Uvicorn, Gunicorn |
 | **Database** | PostgreSQL 16, pgvector extension |
 | **ORM** | SQLAlchemy 2.0 |
-| **Embeddings** | `sentence-transformers` (`BAAI/bge-small-en-v1.5`) |
+| **Embeddings** | `fastembed` ONNX (`BAAI/bge-small-en-v1.5`) — ~100MB RAM vs ~400MB for sentence-transformers |
 | **LLM** | Groq API (`llama-3.3-70b-versatile`) |
 | **Auth** | JWT (python-jose), bcrypt (passlib) |
 | **Document Parsing** | pypdf (PDF), python-docx (DOCX), built-in (TXT) |
 | **Text Splitting** | LangChain `RecursiveCharacterTextSplitter` |
 | **Frontend** | React 18, Vite |
 | **Containerization** | Docker, Docker Compose |
-| **Deployment** | Render.com, Gunicorn |
+| **Deployment** | Render.com (Web Service + Static Site + PostgreSQL) |
 
 ---
 
