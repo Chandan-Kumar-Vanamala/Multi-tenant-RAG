@@ -68,7 +68,7 @@ Multi-tenant RAG/
 │   └── main.py                # FastAPI app + CORS + router registration + model pre-warming
 ├── eval/
 │   ├── questions.json          # 20 ground-truth Q&A pairs
-│   ├── prompts.json            # Prompt version definitions (v1–v3)
+│   ├── prompts.json            # Prompt version definitions (v1, v2)
 │   ├── run_eval.py             # LLM-as-judge evaluation harness
 │   ├── report_v1.json          # ✅ Valid baseline — v1 prompt, 7.5/10 avg score, 75% accuracy
 │   └── report_v2.json          # ⚠️  Partial — v2 assertive prompt, 6.1/10, Q17-20 hit server errors
